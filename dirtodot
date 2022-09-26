@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# Script desarrollado por Steven Esquea
+
+# Sintaxis
+# dirtodot OPCIONES DIRECTORIO
+# Las opciones son:
+# -f Considera archivos
+
+# Por ahora sólo muestra los directorios y/o archivos que no
+# estén ocultos. Algunos nombres de directorios con
+# caracteres un poco "exóticos" pueden generar
+# comportamientos inesperados, pero de momento funcionan
+# bien los nombres "normales", es decir, los que tienen
+# cosas como caracteres alfanuméricos, espacios y guiones
+# bajos. Esta versión del script funciona a partir de
+# inodos, por lo que pueden haber varias carpetas con el
+# mismo nombre, pero no se van a solapar.
+
+TEMPORAL2=".temporal2"
+
+if [ ${#} -eq 0 ]; then
+	echo "Debe especificar el nombre de la carpeta (escrita sin el símbolo / al final)"
+	exit
+elif [ ${#} -eq 1 ]; then
+	if [[ ${1} =~ .*/$ ]]; then
+		OBJETIVO=$(echo $1 | tr -d '/' )
+	else
+		OBJETIVO=$1
+	fi
+	ls -iRl ${OBJETIVO} | grep '^[^.]' | grep '^[^(total)]' | tr -s " " | grep "^[[:digit:]]*\sd" > $TEMPORAL2
+	OPCIONES2="d"
+elif [ ${#} -eq 2 ]; then
+	if [[ ${2} =~ .*/$ ]]; then
+		OBJETIVO=$(echo $2 | tr -d '/' )
+	else
+		OBJETIVO=$2
+	fi
+	if [ $1 = "-f" ]; then
+		ls -iRl ${OBJETIVO} | grep '^[^.]' | grep '^[^(total)]' | tr -s " " | grep "^[[:digit:]]*\s[d-]" > $TEMPORAL2
+		OPCIONES2="d,f"
+	else
+		echo "Los parámetros/argumentos entregados no son válidos"
+		exit
+	fi
+else
+	echo "Número de argumentos inválido"
+	exit
+fi
+
+function buscarNodos {
+
+	# Esta parte es para todas las subcarpetas.
+	for line in $(seq 1 $(cat $TEMPORAL2 | wc -l)); do
+
+		sed -i -e "${line}c$(cat $TEMPORAL2 | sed -ne "${line}p" | sed -e "s/$(sed -ne "${line}p" $TEMPORAL2 | tr -s " " | cut -d " " -f 2-9 | sed -e 's/\./\\./')//" | tr -s " " | sed -e 's/ /[label="/' -e 's/$/"]/')" $TEMPORAL2
+
+	done
+
+	# Aquí se añaden todos los nodos de DOT.
+	# Esta es para la carpeta principal, la que entra como
+	# parámetro.
+	ABORRAR=$(ls -li | grep "[[:digit:]][[:digit:]]:[[:digit:]][[:digit:]]\s${OBJETIVO}$" | sed -e "s/^[[:digit:]]*\s//" -e "s/\s${OBJETIVO}$//")
+	sed -i -e "1i$(ls -li | grep "[[:digit:]][[:digit:]]:[[:digit:]][[:digit:]]\s${OBJETIVO}$" | sed -e "s/$ABORRAR//" | tr -s " " | sed -e 's/ /[label="/' -e 's/$/"]/')" $TEMPORAL2
+
+	cat $TEMPORAL2 > ${OBJETIVO}.gv
+
+	echo "" >> ${OBJETIVO}.gv
+
+	# Aquí ya se han terminado de añadir todos los nodos.
+}
+
+function relacionar {
+	# Esta función busca todas las rutas sólo de los directorios y
+
+	TEMPORAL=".temporal"
+
+	find ${OBJETIVO} -type $OPCIONES2 -printf '%h/%f %i\n' | grep -iv '\/\.' | sed -e 's/\.\///' -e 's/^/.\//' > $TEMPORAL
+
+	ITERADOR=1
+	MAX=$(wc -l $TEMPORAL | tr -s " " | cut -d " " -f 1)
+
+	# Esta parte reescribe todas las rutas pero en términos de
+	# los inodes.
+	while [ $ITERADOR -le $MAX ]; do
+
+		inodo=$(sed -ne "${ITERADOR}p" $TEMPORAL | rev | cut -d ' ' -f 1 | rev) #OK
+	#	rutaAntigua=$(sed -ne "${ITERADOR}p" $TEMPORAL | cut -d ' ' -f 1 | sed -e 's/\./\\./' | sed -e 's/\//\\\//g')
+		rutaAntigua=$(sed -ne "${ITERADOR}p" $TEMPORAL | sed -e 's/\s[[:digit:]]*$//' | sed -e 's/\./\\./' | sed -e 's/\//\\\//g')
+		rutaNueva=$(sed -ne "${ITERADOR}p" $TEMPORAL | sed -e 's/\s[[:digit:]]*$//' | sed -e "s/[^/]*$/$inodo/" | sed -e 's/\//\\\//g')
+		sed -i -e "s/$rutaAntigua/$rutaNueva/g" $TEMPORAL
+		ITERADOR=$(($ITERADOR+1))
+
+	done
+
+	# Esta línea es simplemente es para eliminar la referencia
+	# que crea automáticamente el comando find a la carpeta "."
+	# a la hora de mostrar los inodos.
+	sed -i -e '1d' $TEMPORAL
+
+	cat $TEMPORAL | cut -d " " -f 1 | rev | cut -d '/' -f 1,2 | rev | sed -e 's/^/"/' -e 's/$/"/g' -e 's/\//"->"/' >> ${OBJETIVO}.gv
+
+	# Aquí se crea el archivo de DOT y se le agrega el
+	# encabezado.
+	sed -i -e "1idigraph ${OBJETIVO}{\n" ${OBJETIVO}.gv
+	# Aquí ya se han añadido todas las conexiones.
+	# Con esto se añada ya la llave final del archivo, la de
+	# cierre.
+	echo -e "\n}" >> ${OBJETIVO}.gv
+}
+
+function limpiar {
+	# Aquí simplemente se borra el archivo temporal.
+	
+	rm $TEMPORAL
+	rm $TEMPORAL2
+}
+
+buscarNodos
+relacionar
+limpiar
+
