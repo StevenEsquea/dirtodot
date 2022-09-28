@@ -50,11 +50,18 @@ fi
 
 function buscarNodos {
 
-	# Esta parte es para todas las subcarpetas.
+	# Esta parte es para todas las subcarpetas: crea los
+	# nodos dot y les asigna una forma, dependiendo de si es
+	# un fichero o un directorio.
+	
 	for line in $(seq 1 $(cat $TEMPORAL2 | wc -l)); do
-
-		sed -i -e "${line}c$(cat $TEMPORAL2 | sed -ne "${line}p" | sed -e "s/$(sed -ne "${line}p" $TEMPORAL2 | tr -s " " | cut -d " " -f 2-9 | sed -e 's/\./\\./')//" | tr -s " " | sed -e 's/ /[label="/' -e 's/$/"]/')" $TEMPORAL2
-
+		if [[ $(cat $TEMPORAL2 | sed -ne "${line}p" | cut -d ' ' -f 2 | cut -c 1) =~ - ]]; then
+			sed -i -e "${line}c$(cat $TEMPORAL2 | sed -ne "${line}p" | sed -e "s/$(sed -ne "${line}p" $TEMPORAL2 | tr -s " " | cut -d " " -f 2-9 | sed -e 's/\./\\./')//" | tr -s " " | sed -e 's/ /[label="/' -e 's/$/", shape="rectangle"]/')" $TEMPORAL2
+			continue
+		elif [[ $(cat $TEMPORAL2 | sed -ne "${line}p" | cut -d ' ' -f 2 | cut -c 1) =~ d ]]; then
+			sed -i -e "${line}c$(cat $TEMPORAL2 | sed -ne "${line}p" | sed -e "s/$(sed -ne "${line}p" $TEMPORAL2 | tr -s " " | cut -d " " -f 2-9 | sed -e 's/\./\\./')//" | tr -s " " | sed -e 's/ /[label="/' -e 's/$/"]/')" $TEMPORAL2
+			continue
+		fi 
 	done
 
 	# Aquí se añaden todos los nodos de DOT.
@@ -85,7 +92,6 @@ function relacionar {
 	while [ $ITERADOR -le $MAX ]; do
 
 		inodo=$(sed -ne "${ITERADOR}p" $TEMPORAL | rev | cut -d ' ' -f 1 | rev) #OK
-	#	rutaAntigua=$(sed -ne "${ITERADOR}p" $TEMPORAL | cut -d ' ' -f 1 | sed -e 's/\./\\./' | sed -e 's/\//\\\//g')
 		rutaAntigua=$(sed -ne "${ITERADOR}p" $TEMPORAL | sed -e 's/\s[[:digit:]]*$//' | sed -e 's/\./\\./' | sed -e 's/\//\\\//g')
 		rutaNueva=$(sed -ne "${ITERADOR}p" $TEMPORAL | sed -e 's/\s[[:digit:]]*$//' | sed -e "s/[^/]*$/$inodo/" | sed -e 's/\//\\\//g')
 		sed -i -e "s/$rutaAntigua/$rutaNueva/g" $TEMPORAL
