@@ -18,12 +18,24 @@
 # mismo nombre, pero no se van a solapar.
 
 TEMPORAL2=".temporal2"
+HELP="\
+Descripción: Genera un archivo DOT a partir de la estructura de directorios de DIRECTORIO.\n\
+Modo de uso: dirtodot [OPCIONES] DIRECTORIO\n\
+\
+Opciones:\n\
+\t-f\t\t Considera ficheros\n\
+\t-h, --help\t Muestra esta ayuda\
+\n\
+"
 
 if [ ${#} -eq 0 ]; then
-	echo "Debe especificar el nombre de la carpeta (escrita sin el símbolo / al final)"
+	echo "Debe especificar el nombre del directorio."
 	exit
 elif [ ${#} -eq 1 ]; then
-	if [[ ${1} =~ .*/$ ]]; then
+	if [[ ${1} =~ --help|-h ]]; then
+		echo -e $HELP
+		exit
+	elif [[ ${1} =~ .*/$ ]]; then
 		OBJETIVO=$(echo $1 | tr -d '/' )
 	else
 		OBJETIVO=$1
@@ -55,10 +67,11 @@ function buscarNodos {
 	# un fichero o un directorio.
 	
 	for line in $(seq 1 $(cat $TEMPORAL2 | wc -l)); do
-		if [[ $(cat $TEMPORAL2 | sed -ne "${line}p" | cut -d ' ' -f 2 | cut -c 1) =~ - ]]; then
+		TIPODEARCHIVO=$(cat $TEMPORAL2 | sed -ne "${line}p" | cut -d ' ' -f 2 | cut -c 1)
+		if [[ $TIPODEARCHIVO =~ - ]]; then
 			sed -i -e "${line}c$(cat $TEMPORAL2 | sed -ne "${line}p" | sed -e "s/$(sed -ne "${line}p" $TEMPORAL2 | tr -s " " | cut -d " " -f 2-9 | sed -e 's/\./\\./')//" | tr -s " " | sed -e 's/ /[label="/' -e 's/$/", shape="rectangle"]/')" $TEMPORAL2
 			continue
-		elif [[ $(cat $TEMPORAL2 | sed -ne "${line}p" | cut -d ' ' -f 2 | cut -c 1) =~ d ]]; then
+		elif [[ $TIPODEARCHIVO =~ d ]]; then
 			sed -i -e "${line}c$(cat $TEMPORAL2 | sed -ne "${line}p" | sed -e "s/$(sed -ne "${line}p" $TEMPORAL2 | tr -s " " | cut -d " " -f 2-9 | sed -e 's/\./\\./')//" | tr -s " " | sed -e 's/ /[label="/' -e 's/$/"]/')" $TEMPORAL2
 			continue
 		fi 
